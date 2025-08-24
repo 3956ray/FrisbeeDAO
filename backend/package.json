@@ -12,6 +12,10 @@
     "viem": "^2.34.0"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^5.4.0"
+    "@nomicfoundation/hardhat-ethers": "^4.0.0",
+    "@openzeppelin/contracts": "^5.4.0",
+    "@openzeppelin/contracts-upgradeable": "^5.4.0",
+    "@openzeppelin/hardhat-upgrades": "^3.9.1",
+    "ethers": "^6.15.0"
   }
 }
