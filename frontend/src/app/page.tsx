@@ -1,103 +1,85 @@
 import Image from "next/image";
+import { AthleteRegistration } from "@/components/AthleteRegistration";
+import { IPFSUploader } from "@/components/IPFSUploader";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Home() {
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+    <div className="font-sans min-h-screen p-4 sm:p-8">
+      <div className="max-w-4xl mx-auto">
+        {/* 头部 */}
+        <div className="text-center mb-8">
+          <div className="flex justify-center mb-4">
             <Image
               className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+              src="/next.svg"
+              alt="FrisbeDAO Logo"
+              width={180}
+              height={38}
+              priority
             />
-            Deploy now
-          </a>
+          </div>
+          <h1 className="text-4xl font-bold mb-2">FrisbeDAO</h1>
+          <p className="text-xl text-gray-600 dark:text-gray-400 mb-4">
+            去中心化运动员管理平台
+          </p>
+          <p className="text-gray-500 dark:text-gray-500">
+            使用Web3钱包注册运动员身份，创建个人代币，记录成就到区块链
+          </p>
+        </div>
+
+        {/* 主要功能区域 */}
+        <Tabs defaultValue="register" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="register">运动员注册</TabsTrigger>
+            <TabsTrigger value="ipfs">IPFS 测试</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="register" className="mt-6">
+            <AthleteRegistration />
+          </TabsContent>
+          
+          <TabsContent value="ipfs" className="mt-6">
+            <div className="space-y-4">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold mb-2">IPFS 存储测试</h2>
+                <p className="text-gray-600 dark:text-gray-400">
+                  测试 Pinata IPFS 存储功能 - 上传文件并检索数据
+                </p>
+              </div>
+              <IPFSUploader />
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        {/* 页脚链接 */}
+        <div className="mt-16 flex gap-4 items-center justify-center flex-wrap">
           <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+            className="flex items-center gap-2 hover:underline hover:underline-offset-4 text-sm text-gray-600 dark:text-gray-400"
+            href="https://github.com/FrisbeDAO"
             target="_blank"
             rel="noopener noreferrer"
           >
-            Read our docs
+            GitHub
+          </a>
+          <a
+            className="flex items-center gap-2 hover:underline hover:underline-offset-4 text-sm text-gray-600 dark:text-gray-400"
+            href="https://docs.frisbedao.org"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            文档
+          </a>
+          <a
+            className="flex items-center gap-2 hover:underline hover:underline-offset-4 text-sm text-gray-600 dark:text-gray-400"
+            href="https://discord.gg/frisbedao"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            社区
           </a>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
     </div>
   );
 }
