@@ -2,21 +2,30 @@
   "network": "unknown",
   "chainId": "31337",
   "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-  "timestamp": "2025-08-25T03:08:11.814Z",
+  "timestamp": "2025-09-09T10:05:11.019Z",
   "contracts": {
     "AthleteRegistry": {
-      "address": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+      "address": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0",
       "registrationFee": "0.01"
     },
     "PersonalTokenFactory": {
-      "address": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+      "address": "0x9A676e781A523b5d0C0e43731313A708CB607508",
       "creationFee": "0.005",
       "platformFeePercentage": 250
     },
     "AchievementTracker": {
-      "address": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
+      "address": "0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1",
       "submissionFee": "0.001",
       "verificationReward": "0.0005"
+    },
+    "PriceOracle": {
+      "address": "0x68B1D87F95878fE05B998F19b66F4baba5De1aed",
+      "version": "1.0.0"
+    },
+    "ContentManager": {
+      "address": "0xc6e7DF5E7b4f2A278906862b61205850344D4e7d",
+      "platformFeePercentage": 1500,
+      "version": "1.0.0"
     }
   }
 }
