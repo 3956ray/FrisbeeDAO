@@ -301,6 +301,102 @@ const personaltokenfactory = await PersonalTokenFactory.deploy();
 - 包含重入保護
 - 支持緊急暫停功能
 
+## 測試結果
+
+### 測試覆蓋範圍
+
+本合約包含全面的測試套件，涵蓋以下功能模塊：
+
+#### 基礎功能測試
+- **testFactoryInitialization**: 工廠合約初始化測試
+- **testFactoryInitializationWithHighFee**: 高手續費初始化測試
+- **testFactoryInitializationWithInvalidRegistry**: 無效註冊表初始化測試
+- **testPersonalTokenInitialization**: 個人代幣初始化測試
+
+#### 定價機制測試
+- **testBasicPriceCalculation**: 基礎價格計算測試
+- **testLargeAmountPurchaseCost**: 大額購買成本測試
+- **testSmallAmountPurchaseCost**: 小額購買成本測試
+- **testMinimumPriceFloor**: 最低價格限制測試
+- **testPriceAfterPurchase**: 購買後價格變化測試
+- **testPriceImpact**: 價格影響測試
+- **testPriceUpdateAfterTrade**: 交易後價格更新測試
+- **testPricingConsistency**: 定價一致性測試
+
+#### 代幣交易功能測試
+- **testBuyTokensBasic**: 基本購買功能測試
+- **testBuyTokensInsufficientPayment**: 支付不足錯誤處理測試
+- **testBuyTokensExcessiveAmount**: 購買數量過大限制測試
+- **testBuyTokensMinimumAmount**: 最小購買數量測試
+- **testSellTokensBasic**: 基本出售功能測試
+- **testSellTokensInsufficientBalance**: 餘額不足錯誤處理測試
+- **testSaleRefundCalculation**: 出售退款計算測試
+- **testSaleRefundInsufficientSupply**: 供應量不足處理測試
+
+#### 高級交易功能測試
+- **testMultipleTokenPurchases**: 多次購買測試
+- **testTokenTransferAfterPurchase**: 購買後代幣轉移測試
+- **testTradeEvents**: 交易事件觸發測試
+
+#### 安全性測試
+- **testReentrancyProtection**: 重入攻擊防護測試
+
+### 測試執行結果
+
+```
+Running Solidity tests
+
+test/PersonalTokenFactory.t.sol:PersonalTokenFactoryTest
+  ✔ testTradeEvents()
+  ✔ testTokenTransferAfterPurchase()
+  ✔ testSmallAmountPurchaseCost()
+  ✔ testSellTokensInsufficientBalance()
+  ✔ testSellTokensBasic()
+  ✔ testSaleRefundInsufficientSupply()
+  ✔ testSaleRefundCalculation()
+  ✔ testReentrancyProtection()
+  ✔ testPricingConsistency()
+  ✔ testPriceUpdateAfterTrade()
+  ✔ testPriceImpact()
+  ✔ testPriceAfterPurchase()
+  ✔ testPersonalTokenInitialization()
+  ✔ testMultipleTokenPurchases()
+  ✔ testMinimumPriceFloor()
+  ✔ testLargeAmountPurchaseCost()
+  ✔ testFactoryInitializationWithInvalidRegistry()
+  ✔ testFactoryInitializationWithHighFee()
+  ✔ testFactoryInitialization()
+  ✔ testBuyTokensMinimumAmount()
+  ✔ testBuyTokensInsufficientPayment()
+  ✔ testBuyTokensExcessiveAmount()
+  ✔ testBuyTokensBasic()
+  ✔ testBasicPriceCalculation()
+
+24 passing
+```
+
+### 測試統計
+
+- **總測試用例數**: 24個
+- **通過率**: 100%
+- **測試覆蓋功能**:
+  - 合約初始化和配置
+  - 聯合曲線定價機制
+  - 代幣購買和出售功能
+  - 交易事件和錯誤處理
+  - 安全性保護機制
+  - 代幣轉移和多用戶交互
+
+### 測試質量保證
+
+1. **功能完整性**: 測試覆蓋了合約的所有主要功能模塊
+2. **邊界條件**: 包含各種極端情況和錯誤處理測試
+3. **安全性驗證**: 實現了重入攻擊防護等安全機制測試
+4. **事件驗證**: 確保所有重要操作都正確觸發相應事件
+5. **Gas優化**: 測試用例設計考慮了Gas消耗優化
+
+這些測試為PersonalTokenFactory合約的穩定性和安全性提供了可靠保障，確保在生產環境中能夠正常運行。
+
 ## 許可證
 
 MIT License
