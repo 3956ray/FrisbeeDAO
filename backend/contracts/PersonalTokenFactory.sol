@@ -5,8 +5,11 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./AthleteRegistry.sol";
 
 /**
@@ -14,10 +17,40 @@ import "./AthleteRegistry.sol";
  * @dev 运动员个人代币合约
  */
 contract PersonalToken is ERC20, Ownable {
+    using Address for address payable;
+    using SafeERC20 for IERC20;
+    
     address public athlete;
     address public factory;
     uint256 public basePrice;
     uint256 public baseSupply;
+    
+    // 安全性狀態變量
+    bool private _locked;
+    uint256 public constant MAX_SUPPLY = 1000000 * 10**18; // 最大供應量限制
+    uint256 public constant MIN_PURCHASE_AMOUNT = 1; // 最小購買數量
+    uint256 public constant MAX_PURCHASE_AMOUNT = 10000; // 最大購買數量限制
+    
+    // 重入攻擊防護修飾符
+    modifier nonReentrant() {
+        require(!_locked, "PersonalToken: Reentrant call");
+        _locked = true;
+        _;
+        _locked = false;
+    }
+    
+    // 數量驗證修飾符
+    modifier validAmount(uint256 _amount) {
+        require(_amount >= MIN_PURCHASE_AMOUNT, "PersonalToken: Amount too small");
+        require(_amount <= MAX_PURCHASE_AMOUNT, "PersonalToken: Amount too large");
+        _;
+    }
+    
+    // 供應量檢查修飾符
+    modifier supplyCheck(uint256 _amount) {
+        require(totalSupply() + _amount <= MAX_SUPPLY, "PersonalToken: Exceeds max supply");
+        _;
+    }
     
     event TokensPurchased(address indexed buyer, uint256 amount, uint256 cost);
     event TokensSold(address indexed seller, uint256 amount, uint256 refund);
@@ -40,29 +73,92 @@ contract PersonalToken is ERC20, Ownable {
     }
     
     /**
-     * @dev 计算购买代币的成本
+     * @dev 计算购买代币的成本 - 新的联合曲线定价机制
      * @param _amount 购买数量
      * @return cost 总成本
      */
     function calculatePurchaseCost(uint256 _amount) public view returns (uint256 cost) {
         uint256 currentSupply = totalSupply();
         
-        // 使用积分计算联合曲线下的面积
-        // price = basePrice * (supply/baseSupply)^2
-        // cost = ∫[currentSupply to currentSupply+amount] basePrice * (x/baseSupply)^2 dx
-        
-        uint256 supply1 = currentSupply;
-        uint256 supply2 = currentSupply + _amount;
-        
-        // 积分结果: basePrice * (x^3)/(3 * baseSupply^2)
-        uint256 integral1 = (basePrice * supply1 * supply1 * supply1) / (3 * baseSupply * baseSupply);
-        uint256 integral2 = (basePrice * supply2 * supply2 * supply2) / (3 * baseSupply * baseSupply);
-        
-        cost = integral2 - integral1;
+        // 優化的联合曲线定价計算 - 減少循環次數提高Gas效率
+        // 對於小額購買使用簡化計算，大額購買使用分段計算
+        if (_amount <= 10) {
+            // 小額購買：直接使用當前價格
+            uint256 avgPrice = _calculatePrice(currentSupply + _amount / 2);
+            cost = avgPrice * _amount;
+        } else {
+            // 大額購買：使用優化的分段計算，最多10段
+            uint256 segments = _amount > 1000 ? 10 : (_amount > 100 ? 5 : 2);
+            uint256 segmentSize = _amount / segments;
+            uint256 remainder = _amount % segments;
+            
+            cost = 0;
+            uint256 supply = currentSupply;
+            
+            // 計算每個段的成本
+            for (uint256 i = 0; i < segments; i++) {
+                uint256 currentSegmentSize = segmentSize;
+                if (i == segments - 1) {
+                    currentSegmentSize += remainder;
+                }
+                
+                // 使用段中點的價格計算成本
+                uint256 midSupply = supply + currentSegmentSize / 2;
+                uint256 segmentPrice = _calculatePrice(midSupply);
+                cost += segmentPrice * currentSegmentSize;
+                
+                supply += currentSegmentSize;
+            }
+        }
     }
     
     /**
-     * @dev 计算出售代币的退款
+     * @dev 计算特定供应量下的价格
+     * @param _supply 供应量
+     * @return price 价格 (wei)
+     */
+    function _calculatePrice(uint256 _supply) private pure returns (uint256 price) {
+        // P = 0.01 * (1 + supply/1000)^1.5
+        // 为了避免浮点运算，使用整数运算
+        // 基础价格 = 0.01 ETH = 10^16 wei
+        uint256 initialPrice = 10**16; // 0.01 ETH in wei
+        
+        // 计算 (1 + supply/1000)
+        uint256 factor = 1000 + _supply; // 乘以1000避免小数
+        
+        // 计算 factor^1.5 = factor * sqrt(factor)
+        // 使用近似算法计算平方根
+        uint256 sqrtFactor = _sqrt(factor * 1000); // 乘以1000保持精度
+        uint256 powerFactor = (factor * sqrtFactor) / 1000; // 除以1000恢复精度
+        
+        // 最终价格计算
+        price = (initialPrice * powerFactor) / (1000 * 1000); // 除以1000^2因为之前乘了两次1000
+        
+        // 确保最小价格
+        if (price < initialPrice / 100) {
+            price = initialPrice / 100; // 最小价格为0.0001 ETH
+        }
+    }
+    
+    /**
+     * @dev 计算平方根 (使用巴比伦方法)
+     * @param x 输入值
+     * @return y 平方根
+     */
+    function _sqrt(uint256 x) private pure returns (uint256 y) {
+        if (x == 0) return 0;
+        
+        uint256 z = (x + 1) / 2;
+        y = x;
+        
+        while (z < y) {
+            y = z;
+            z = (x / z + z) / 2;
+        }
+    }
+    
+    /**
+     * @dev 计算出售代币的退款 - 新的联合曲线定价机制
      * @param _amount 出售数量
      * @return refund 退款金额
      */
@@ -70,58 +166,123 @@ contract PersonalToken is ERC20, Ownable {
         uint256 currentSupply = totalSupply();
         require(_amount <= currentSupply, "PersonalToken: Insufficient supply");
         
-        uint256 supply1 = currentSupply - _amount;
-        uint256 supply2 = currentSupply;
+        // 優化的退款計算 - 與購買計算保持一致的優化策略
+        if (_amount <= 10) {
+            // 小額出售：直接使用當前價格
+            uint256 avgPrice = _calculatePrice(currentSupply - _amount / 2);
+            refund = avgPrice * _amount;
+        } else {
+            // 大額出售：使用優化的分段計算
+            uint256 segments = _amount > 1000 ? 10 : (_amount > 100 ? 5 : 2);
+            uint256 segmentSize = _amount / segments;
+            uint256 remainder = _amount % segments;
+            
+            refund = 0;
+            uint256 supply = currentSupply;
+            
+            // 從當前供應量向下計算每個段的退款
+            for (uint256 i = 0; i < segments; i++) {
+                uint256 currentSegmentSize = segmentSize;
+                if (i == segments - 1) {
+                    currentSegmentSize += remainder;
+                }
+                
+                // 使用段中點的價格計算退款
+                uint256 midSupply = supply - currentSegmentSize / 2;
+                uint256 segmentPrice = _calculatePrice(midSupply);
+                refund += segmentPrice * currentSegmentSize;
+                
+                supply -= currentSegmentSize;
+            }
+        }
         
-        // 同样使用积分计算
-        uint256 integral1 = (basePrice * supply1 * supply1 * supply1) / (3 * baseSupply * baseSupply);
-        uint256 integral2 = (basePrice * supply2 * supply2 * supply2) / (3 * baseSupply * baseSupply);
-        
-        refund = integral2 - integral1;
+        // 应用出售折扣 (95% 退款，5% 作为流动性费用)
+        refund = (refund * 95) / 100;
     }
     
     /**
-     * @dev 获取当前代币价格
+     * @dev 获取当前代币价格 - 新的联合曲线定价机制
      * @return price 当前价格
      */
     function getCurrentPrice() public view returns (uint256 price) {
         uint256 currentSupply = totalSupply();
-        price = (basePrice * currentSupply * currentSupply) / (baseSupply * baseSupply);
+        price = _calculatePrice(currentSupply);
     }
     
     /**
-     * @dev 购买代币
+     * @dev 获取购买指定数量代币后的价格
+     * @param _amount 购买数量
+     * @return price 购买后的价格
+     */
+    function getPriceAfterPurchase(uint256 _amount) public view returns (uint256 price) {
+        uint256 newSupply = totalSupply() + _amount;
+        price = _calculatePrice(newSupply);
+    }
+    
+    /**
+     * @dev 获取价格影响百分比
+     * @param _amount 购买数量
+     * @return impactPercentage 价格影响百分比 (basis points)
+     */
+    function getPriceImpact(uint256 _amount) public view returns (uint256 impactPercentage) {
+        uint256 currentPrice = getCurrentPrice();
+        uint256 newPrice = getPriceAfterPurchase(_amount);
+        
+        if (currentPrice == 0) return 0;
+        
+        impactPercentage = ((newPrice - currentPrice) * 10000) / currentPrice;
+    }
+    
+    /**
+     * @dev 购买代币 - 添加安全性檢查
      * @param _amount 购买数量
      */
-    function buyTokens(uint256 _amount) external payable {
-        require(_amount > 0, "PersonalToken: Amount must be positive");
-        
+    function buyTokens(uint256 _amount) 
+        external 
+        payable 
+        nonReentrant 
+        validAmount(_amount) 
+        supplyCheck(_amount) 
+    {
         uint256 cost = calculatePurchaseCost(_amount);
         require(msg.value >= cost, "PersonalToken: Insufficient payment");
+        
+        // 檢查合約餘額是否足夠支付退款（防止合約被耗盡）
+        uint256 refund = msg.value - cost;
+        if (refund > 0) {
+            require(address(this).balance >= refund, "PersonalToken: Insufficient contract balance for refund");
+        }
         
         _mint(msg.sender, _amount);
         
         emit TokensPurchased(msg.sender, _amount, cost);
         
-        // 退还多余的ETH
-        if (msg.value > cost) {
-            payable(msg.sender).transfer(msg.value - cost);
+        // 安全地退还多余的ETH
+        if (refund > 0) {
+            payable(msg.sender).sendValue(refund);
         }
     }
     
     /**
-     * @dev 出售代币
+     * @dev 出售代币 - 添加安全性檢查
      * @param _amount 出售数量
      */
-    function sellTokens(uint256 _amount) external {
-        require(_amount > 0, "PersonalToken: Amount must be positive");
+    function sellTokens(uint256 _amount) 
+        external 
+        nonReentrant 
+        validAmount(_amount) 
+    {
         require(balanceOf(msg.sender) >= _amount, "PersonalToken: Insufficient balance");
         
         uint256 refund = calculateSaleRefund(_amount);
         require(address(this).balance >= refund, "PersonalToken: Insufficient contract balance");
+        require(refund > 0, "PersonalToken: Invalid refund amount");
         
+        // 先銷毀代幣，再轉賬（遵循 CEI 模式）
         _burn(msg.sender, _amount);
-        payable(msg.sender).transfer(refund);
+        
+        // 安全地轉賬退款
+        payable(msg.sender).sendValue(refund);
         
         emit TokensSold(msg.sender, _amount, refund);
     }
@@ -140,7 +301,8 @@ contract PersonalTokenFactory is
     Initializable, 
     OwnableUpgradeable, 
     UUPSUpgradeable, 
-    ReentrancyGuardUpgradeable 
+    ReentrancyGuardUpgradeable,
+    PausableUpgradeable 
 {
     AthleteRegistry public athleteRegistry;
     
@@ -211,6 +373,7 @@ contract PersonalTokenFactory is
         __Ownable_init(_owner);
         __UUPSUpgradeable_init();
         __ReentrancyGuard_init();
+        __Pausable_init();
         
         athleteRegistry = AthleteRegistry(_athleteRegistry);
         creationFee = _creationFee;
@@ -229,7 +392,7 @@ contract PersonalTokenFactory is
         string calldata _symbol,
         uint256 _basePrice,
         uint256 _baseSupply
-    ) external payable nonReentrant {
+    ) external payable nonReentrant whenNotPaused {
         require(msg.value >= creationFee, "PersonalTokenFactory: Insufficient creation fee");
         require(_basePrice > 0, "PersonalTokenFactory: Base price must be positive");
         require(_baseSupply > 0, "PersonalTokenFactory: Base supply must be positive");
@@ -337,13 +500,28 @@ contract PersonalTokenFactory is
     }
 
     /**
-     * @dev 提取合约余额
+     * @dev 提取合约余额 - 添加安全性檢查
      */
     function withdraw() external onlyOwner {
         uint256 balance = address(this).balance;
         require(balance > 0, "PersonalTokenFactory: No funds to withdraw");
         
-        payable(owner()).transfer(balance);
+        // 使用 Address.sendValue 進行安全轉賬
+        Address.sendValue(payable(owner()), balance);
+    }
+    
+    /**
+     * @dev 緊急暫停功能 - 安全機制
+     */
+    function emergencyPause() external onlyOwner {
+        _pause();
+    }
+    
+    /**
+     * @dev 恢復合約運行
+     */
+    function unpause() external onlyOwner {
+        _unpause();
     }
 
     /**
@@ -354,7 +532,7 @@ contract PersonalTokenFactory is
     function batchBuyTokens(
         address _tokenAddress,
         uint256 _amount
-    ) external payable nonReentrant {
+    ) external payable nonReentrant whenNotPaused {
         require(
             tokenToAthlete[_tokenAddress] != address(0),
             "PersonalTokenFactory: Invalid token"
@@ -369,17 +547,38 @@ contract PersonalTokenFactory is
         PersonalToken token = PersonalToken(payable(_tokenAddress));
         uint256 cost = token.calculatePurchaseCost(_amount);
         
+        // 获取用户等级以计算折扣
+        AthleteRegistry.UserLevel memory userLevel = athleteRegistry.getUserLevel(msg.sender, athlete);
+        uint256 discount = 0;
+        
+        if (userLevel.currentLevel > 0) {
+            AthleteRegistry.LevelConfig memory levelConfig = athleteRegistry.getLevelConfig(userLevel.currentLevel);
+            discount = (cost * levelConfig.discountPercentage) / 10000;
+        }
+        
+        uint256 discountedCost = cost - discount;
+        
         // 计算平台手续费
-        uint256 platformFee = (cost * platformFeePercentage) / 10000;
-        uint256 totalCost = cost + platformFee;
+        uint256 platformFee = (discountedCost * platformFeePercentage) / 10000;
+        uint256 totalCost = discountedCost + platformFee;
         
         require(msg.value >= totalCost, "PersonalTokenFactory: Insufficient payment");
         
-        // 向代币合约发送购买成本
-        token.buyTokens{value: cost}(_amount);
+        // 檢查代幣合約餘額是否足夠
+        require(address(token).balance >= discountedCost || discountedCost == 0, "PersonalTokenFactory: Token contract insufficient balance");
         
-        // 将代币转移给购买者
-        IERC20(_tokenAddress).transferFrom(address(this), msg.sender, _amount);
+        // 記錄購買前的代幣餘額
+        uint256 balanceBefore = IERC20(_tokenAddress).balanceOf(msg.sender);
+        
+        // 直接調用代幣合約的購買函數（代幣會直接鑄造給調用者）
+        token.buyTokens{value: discountedCost}(_amount);
+        
+        // 驗證代幣是否正確鑄造
+        uint256 balanceAfter = IERC20(_tokenAddress).balanceOf(msg.sender);
+        require(balanceAfter >= balanceBefore + _amount, "PersonalTokenFactory: Token minting failed");
+        
+        // 记录投资到 AthleteRegistry 以更新用户等级
+        athleteRegistry.recordInvestment(msg.sender, athlete, discountedCost, _amount);
         
         // 退还多余的ETH
         if (msg.value > totalCost) {
