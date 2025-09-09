@@ -81,7 +81,7 @@ contract AthleteRegistry is
     address[] public athleteList;
     address[] public verifierList;
     
-    // 常量定義 - 使用 immutable 和 constant 優化 Gas
+    // 使用 immutable 和 constant 優化 Gas
     uint256 public constant MAX_REPUTATION_SCORE = 1000;
     uint256 public constant MIN_REPUTATION_SCORE = 0;
     uint256 public constant MIN_LEVEL = 1;
@@ -91,47 +91,55 @@ contract AthleteRegistry is
     uint256 public registrationFee;
     
     // 事件定义
+    // 运动员注册事件
     event AthleteRegistered(
         address indexed athlete,
         string name,
         string sport,
         uint256 timestamp
     );
-    
+
+    // 验证事件
     event AthleteVerified(
         address indexed athlete,
         address indexed verifier,
         uint256 timestamp
     );
-    
+
+    // 状态变更事件
     event AthleteStatusChanged(
         address indexed athlete,
         AthleteStatus oldStatus,
         AthleteStatus newStatus,
         uint256 timestamp
     );
-    
+
+    // 聲譽更新事件
     event ReputationUpdated(
         address indexed athlete,
         uint256 oldScore,
         uint256 newScore,
         string reason
     );
-    
+
+    // 验证者添加事件
     event VerifierAdded(
         address indexed verifier,
         string organization
     );
-    
+
+    // 验证者移除事件
     event VerifierRemoved(
         address indexed verifier
     );
-    
+
+    // 个人资料更新事件
     event ProfileUpdated(
         address indexed athlete,
         string ipfsHash
     );
-    
+
+    // 等级更新事件
     event LevelUpdated(
         address indexed user,
         address indexed athlete,
@@ -139,14 +147,16 @@ contract AthleteRegistry is
         uint8 newLevel,
         uint256 cumulativeInvestment
     );
-    
+
+    // 等级配置更新事件
     event LevelConfigUpdated(
         uint8 indexed level,
         uint256 requiredInvestment,
         uint256 discountPercentage,
         string levelName
     );
-    
+
+    // 投資記錄事件
     event InvestmentRecorded(
         address indexed user,
         address indexed athlete,
@@ -155,16 +165,19 @@ contract AthleteRegistry is
     );
 
     // 修饰符
+    // 仅注册运动员
     modifier onlyRegisteredAthlete() {
         require(isRegistered[msg.sender], "AthleteRegistry: Not registered");
         _;
     }
     
+    // 仅验证者
     modifier onlyVerifier() {
         require(verifiers[msg.sender].isActive, "AthleteRegistry: Not authorized verifier");
         _;
     }
     
+    // 仅已验证运动员
     modifier onlyVerifiedAthlete(address athlete) {
         require(
             athletes[athlete].status == AthleteStatus.Verified,
