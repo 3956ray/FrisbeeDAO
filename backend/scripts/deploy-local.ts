@@ -1,136 +1,151 @@
-import { network } from "hardhat";
-import { encodeFunctionData, formatEther, parseEther } from "viem";
+import hre from "hardhat";
+import { ethers as Ethers } from "ethers";
 
 async function main() {
-  console.log("🚀 开始部署 FrisbeDAO 合约到本地网络...");
+  console.log("🚀 开始部署 FrisbeDAO 合约到本地网络 (ethers + JsonRpcProvider 路线)...");
 
-  const connection = await network.connect({ network: "hardhat", chainType: "l1" });
-  // 调试：打印连接对象的键，确认 viem 是否挂载
-  console.log("connection keys:", Object.keys(connection as any));
-  // @ts-ignore
-  const viem = (connection as any).viem;
-  console.log("viem present?", !!viem);
-  if (!viem) {
-    throw new Error("hardhat-viem 插件未生效：无法获取 viem 连接。请确认 hardhat.config.ts 已导入 @nomicfoundation/hardhat-toolbox-viem，并使用 Hardhat v3 运行。");
-  }
+  // 直接连到本地 Hardhat 节点，避免 hre.ethers 注入问题
+  const rpcUrl = process.env.RPC_URL || "http://127.0.0.1:8545";
+  const provider = new Ethers.JsonRpcProvider(rpcUrl);
 
-  const publicClient = await viem.getPublicClient();
-  const [walletClient] = await viem.getWalletClients();
-  const deployer = walletClient.account!.address as `0x${string}`;
+  // 使用 Hardhat 本地节点默认助记词推导第一个账户
+  const mnemonic = process.env.MNEMONIC || "test test test test test test test test test test test junk";
+  const wallet = Ethers.Wallet.fromPhrase(mnemonic);
+  const signer = wallet.connect(provider);
 
-  console.log(`📝 部署账户: ${deployer}`);
-  const balance = await publicClient.getBalance({ address: deployer });
-  console.log(`💰 账户余额: ${formatEther(balance)} ETH`);
+  const deployer = await signer.getAddress();
+  let currentNonce = await provider.getTransactionCount(deployer, "latest");
+  const nextNonce = () => currentNonce++;
+
+  const balance = await provider.getBalance(deployer);
+  console.log("📝 部署账户:", deployer);
+  console.log("💰 账户余额:", Ethers.formatEther(balance), "ETH");
 
   // 部署参数
-  const registrationFee = parseEther("0.01"); // 0.01 ETH
-  const creationFee = parseEther("0.005"); // 0.005 ETH
+  const registrationFee = Ethers.parseEther("0.01");
+  const creationFee = Ethers.parseEther("0.005");
   const platformFeePercentage = 250n; // 2.5%
-  const submissionFee = parseEther("0.001"); // 0.001 ETH
-  const verificationReward = parseEther("0.0005"); // 0.0005 ETH
+  const submissionFee = Ethers.parseEther("0.001");
+  const verificationReward = Ethers.parseEther("0.0005");
 
   console.log("\n📋 部署参数:");
-  console.log(`   注册费用: ${formatEther(registrationFee)} ETH`);
-  console.log(`   创建费用: ${formatEther(creationFee)} ETH`);
-  console.log(`   平台手续费: ${platformFeePercentage / 100n}%`);
-  console.log(`   提交费用: ${formatEther(submissionFee)} ETH`);
-  console.log(`   验证奖励: ${formatEther(verificationReward)} ETH`);
+  console.log("   注册费用:", Ethers.formatEther(registrationFee), "ETH");
+  console.log("   创建费用:", Ethers.formatEther(creationFee), "ETH");
+  console.log("   平台手续费:", String(platformFeePercentage / 100n) + "%");
+  console.log("   提交费用:", Ethers.formatEther(submissionFee), "ETH");
+  console.log("   验证奖励:", Ethers.formatEther(verificationReward), "ETH");
 
-  // 1) 部署实现合约
+  // 读取合约 Artifact
+  const AthleteRegistryArtifact = await hre.artifacts.readArtifact("AthleteRegistry");
+  const PersonalTokenFactoryArtifact = await hre.artifacts.readArtifact("PersonalTokenFactory");
+  const AchievementTrackerArtifact = await hre.artifacts.readArtifact("AchievementTracker");
+  const ERC1967ProxyArtifact = await hre.artifacts.readArtifact("ERC1967ProxyWrapper");
+
+  // 部署 AthleteRegistry 实现
   console.log("\n🏃 部署 AthleteRegistry 实现...");
-  const athleteImpl = await viem.deployContract("AthleteRegistry");
-  console.log(`   实现地址: ${athleteImpl.address}`);
+  const AthleteRegistryFactory = new Ethers.ContractFactory(
+    AthleteRegistryArtifact.abi,
+    AthleteRegistryArtifact.bytecode,
+    signer
+  );
+  const athleteImpl = await AthleteRegistryFactory.deploy({ nonce: nextNonce() });
+  await athleteImpl.waitForDeployment();
+  const athleteImplAddr = await athleteImpl.getAddress();
+  console.log("   实现地址:", athleteImplAddr);
 
+  // 部署 PersonalTokenFactory 实现
   console.log("🏭 部署 PersonalTokenFactory 实现...");
-  const factoryImpl = await viem.deployContract("PersonalTokenFactory");
-  console.log(`   实现地址: ${factoryImpl.address}`);
+  const PersonalTokenFactoryFactory = new Ethers.ContractFactory(
+    PersonalTokenFactoryArtifact.abi,
+    PersonalTokenFactoryArtifact.bytecode,
+    signer
+  );
+  const factoryImpl = await PersonalTokenFactoryFactory.deploy({ nonce: nextNonce() });
+  await factoryImpl.waitForDeployment();
+  const factoryImplAddr = await factoryImpl.getAddress();
+  console.log("   实现地址:", factoryImplAddr);
 
+  // 部署 AchievementTracker 实现
   console.log("🏆 部署 AchievementTracker 实现...");
-  const trackerImpl = await viem.deployContract("AchievementTracker");
-  console.log(`   实现地址: ${trackerImpl.address}`);
+  const AchievementTrackerFactory = new Ethers.ContractFactory(
+    AchievementTrackerArtifact.abi,
+    AchievementTrackerArtifact.bytecode,
+    signer
+  );
+  const trackerImpl = await AchievementTrackerFactory.deploy({ nonce: nextNonce() });
+  await trackerImpl.waitForDeployment();
+  const trackerImplAddr = await trackerImpl.getAddress();
+  console.log("   实现地址:", trackerImplAddr);
 
-  // 2) 通过 ERC1967Proxy 部署代理并初始化
-  console.log("\n🧩 通过 ERC1967Proxy 部署并初始化...");
+  // 代理部署 + 初始化数据
+  const athleteIface = new Ethers.Interface(AthleteRegistryArtifact.abi);
+  const athleteInitData = athleteIface.encodeFunctionData("initialize", [deployer, registrationFee]);
 
-  const athleteInitData = encodeFunctionData({
-    abi: athleteImpl.abi,
-    functionName: "initialize",
-    args: [deployer, registrationFee],
-  });
-  const athleteProxy = await viem.deployContract("ERC1967Proxy", [athleteImpl.address, athleteInitData]);
-  console.log(`✅ AthleteRegistry 代理部署成功: ${athleteProxy.address}`);
+  const ProxyFactory = new Ethers.ContractFactory(
+    ERC1967ProxyArtifact.abi,
+    ERC1967ProxyArtifact.bytecode,
+    signer
+  );
 
-  const factoryInitData = encodeFunctionData({
-    abi: factoryImpl.abi,
-    functionName: "initialize",
-    args: [deployer, athleteProxy.address, creationFee, platformFeePercentage],
-  });
-  const factoryProxy = await viem.deployContract("ERC1967Proxy", [factoryImpl.address, factoryInitData]);
-  console.log(`✅ PersonalTokenFactory 代理部署成功: ${factoryProxy.address}`);
+  const athleteProxy = await ProxyFactory.deploy(athleteImplAddr, athleteInitData, { nonce: nextNonce() });
+  await athleteProxy.waitForDeployment();
+  const athleteProxyAddr = await athleteProxy.getAddress();
+  console.log(`✅ AthleteRegistry 代理部署成功: ${athleteProxyAddr}`);
 
-  const trackerInitData = encodeFunctionData({
-    abi: trackerImpl.abi,
-    functionName: "initialize",
-    args: [deployer, athleteProxy.address, submissionFee, verificationReward],
-  });
-  const trackerProxy = await viem.deployContract("ERC1967Proxy", [trackerImpl.address, trackerInitData]);
-  console.log(`✅ AchievementTracker 代理部署成功: ${trackerProxy.address}`);
+  const factoryIface = new Ethers.Interface(PersonalTokenFactoryArtifact.abi);
+  const factoryInitData = factoryIface.encodeFunctionData("initialize", [
+    deployer,
+    athleteProxyAddr,
+    creationFee,
+    platformFeePercentage,
+  ]);
+  const factoryProxy = await ProxyFactory.deploy(factoryImplAddr, factoryInitData, { nonce: nextNonce() });
+  await factoryProxy.waitForDeployment();
+  const factoryProxyAddr = await factoryProxy.getAddress();
+  console.log(`✅ PersonalTokenFactory 代理部署成功: ${factoryProxyAddr}`);
 
-  // 3) 配置权限：将 AchievementTracker 添加为 AthleteRegistry 验证者；将部署者设为初始验证者
+  const trackerIface = new Ethers.Interface(AchievementTrackerArtifact.abi);
+  const trackerInitData = trackerIface.encodeFunctionData("initialize", [
+    deployer,
+    athleteProxyAddr,
+    submissionFee,
+    verificationReward,
+  ]);
+  const trackerProxy = await ProxyFactory.deploy(trackerImplAddr, trackerInitData, { nonce: nextNonce() });
+  await trackerProxy.waitForDeployment();
+  const trackerProxyAddr = await trackerProxy.getAddress();
+  console.log(`✅ AchievementTracker 代理部署成功: ${trackerProxyAddr}`);
+
+  // 绑定实例进行交互
+  const athlete = new Ethers.Contract(athleteProxyAddr, AthleteRegistryArtifact.abi, signer);
+  const factory = new Ethers.Contract(factoryProxyAddr, PersonalTokenFactoryArtifact.abi, signer);
+  const tracker = new Ethers.Contract(trackerProxyAddr, AchievementTrackerArtifact.abi, signer);
+
+  // 配置权限（也带上 nonce）
   console.log("\n🔐 配置权限...");
-  // 与代理交互时，使用实现 ABI + 代理地址
-  await walletClient.writeContract({
-    address: athleteProxy.address,
-    abi: athleteImpl.abi,
-    functionName: "addVerifier",
-    args: [trackerProxy.address, "AchievementTracker Contract"],
-    account: walletClient.account,
-  });
-  console.log("   ✅ AchievementTracker 已添加为 AthleteRegistry 验证者");
+  let tx = await athlete.addVerifier(trackerProxyAddr, "AchievementTracker Contract", { nonce: nextNonce() });
+  await tx.wait();
+  tx = await athlete.addVerifier(deployer, "FrisbeDAO Team", { nonce: nextNonce() });
+  await tx.wait();
+  tx = await tracker.addVerifier(deployer, 5n, "General Sports", { nonce: nextNonce() });
+  await tx.wait();
+  console.log("   ✅ 权限配置完成");
 
-  await walletClient.writeContract({
-    address: athleteProxy.address,
-    abi: athleteImpl.abi,
-    functionName: "addVerifier",
-    args: [deployer, "FrisbeDAO Team"],
-    account: walletClient.account,
-  });
-  await walletClient.writeContract({
-    address: trackerProxy.address,
-    abi: trackerImpl.abi,
-    functionName: "addVerifier",
-    args: [deployer, 5n, "General Sports"],
-    account: walletClient.account,
-  });
-  console.log("   ✅ 部署者已配置为验证者");
-
-  // 4) 读取状态验证
+  // 读取状态验证
   console.log("\n🔍 验证部署状态...");
-  const registrationFeeRead = await publicClient.readContract({
-    address: athleteProxy.address,
-    abi: athleteImpl.abi,
-    functionName: "registrationFee",
-  });
-  const creationFeeRead = await publicClient.readContract({
-    address: factoryProxy.address,
-    abi: factoryImpl.abi,
-    functionName: "creationFee",
-  });
-  const submissionFeeRead = await publicClient.readContract({
-    address: trackerProxy.address,
-    abi: trackerImpl.abi,
-    functionName: "submissionFee",
-  });
+  const registrationFeeRead = await athlete.registrationFee();
+  const creationFeeRead = await factory.creationFee();
+  const submissionFeeRead = await tracker.submissionFee();
 
   console.log("\n📄 合约地址:");
-  console.log(`   AthleteRegistry: ${athleteProxy.address}`);
-  console.log(`   PersonalTokenFactory: ${factoryProxy.address}`);
-  console.log(`   AchievementTracker: ${trackerProxy.address}`);
+  console.log(`   AthleteRegistry: ${athleteProxyAddr}`);
+  console.log(`   PersonalTokenFactory: ${factoryProxyAddr}`);
+  console.log(`   AchievementTracker: ${trackerProxyAddr}`);
 
   console.log("\n📊 参数校验:");
-  console.log(`   AthleteRegistry 注册费: ${formatEther(registrationFeeRead as bigint)} ETH`);
-  console.log(`   PersonalTokenFactory 创建费: ${formatEther(creationFeeRead as bigint)} ETH`);
-  console.log(`   AchievementTracker 提交费: ${formatEther(submissionFeeRead as bigint)} ETH`);
+  console.log(`   AthleteRegistry 注册费: ${Ethers.formatEther(registrationFeeRead)} ETH`);
+  console.log(`   PersonalTokenFactory 创建费: ${Ethers.formatEther(creationFeeRead)} ETH`);
+  console.log(`   AchievementTracker 提交费: ${Ethers.formatEther(submissionFeeRead)} ETH`);
 
   console.log("\n✨ 本地部署完成!");
 }

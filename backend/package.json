@@ -16,7 +16,6 @@
     "@nomicfoundation/hardhat-ethers": "^4.0.0",
     "@openzeppelin/contracts": "^5.4.0",
     "@openzeppelin/contracts-upgradeable": "^5.4.0",
-    "@openzeppelin/hardhat-upgrades": "^3.9.1",
     "@types/form-data": "^2.2.1",
     "axios": "^1.11.0",
     "dotenv": "^17.2.1",

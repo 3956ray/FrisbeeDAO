@@ -4,19 +4,10 @@ import { ethers as Ethers } from "ethers";
 async function main() {
   console.log("🚀 开始部署 FrisbeDAO 核心合约...");
 
-  // 通过 Hardhat v3 的 network.connect 获取连接与 Provider
-  const connection = await hre.network.connect({ network: "hardhat", chainType: "l1" } as any);
-  console.log("connection keys:", Object.keys(connection || {}));
-  // @ts-ignore
-  console.log("connection.provider exists:", !!(connection as any).provider);
-
-  const hhProvider: any = (connection as any).provider;
-  if (!hhProvider) {
-    throw new Error("Hardhat connection.provider 未找到");
-  }
-  // 使用 BrowserProvider 包装 EIP-1193 provider（ethers v6 支持）
-  const provider = new Ethers.BrowserProvider(hhProvider as any);
-  const signer = await provider.getSigner();
+  // 使用 Hardhat v3 的 EIP-1193 provider（尊重 --network 参数，如 localhost）
+  const hhProvider: any = (hre as any).network.provider;
+  const provider = new Ethers.BrowserProvider(hhProvider);
+  const signer = await provider.getSigner(0);
 
   console.log("部署账户:", await signer.getAddress());
   console.log("账户余额:", Ethers.formatEther(await provider.getBalance(await signer.getAddress())), "ETH");
@@ -170,7 +161,7 @@ async function main() {
     // 7. 生成配置文件
     const networkInfo = await provider.getNetwork();
     const deploymentConfig = {
-      network: (networkInfo as any).name || "hardhat",
+      network: (networkInfo as any).name || hre.network.name || "localhost",
       chainId: String(networkInfo.chainId),
       deployer: deployerAddr,
       timestamp: new Date().toISOString(),

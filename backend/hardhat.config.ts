@@ -24,6 +24,15 @@ const config: HardhatUserConfig = {
       type: "edr-simulated",
       chainType: "l1",
     },
+    // 本地运行的 http 节点（例如：`npx hardhat node` 或其它兼容的本地节点）
+    localhost: {
+      type: "http",
+      chainType: "l1",
+      url: "http://127.0.0.1:8545",
+      accounts: {
+        mnemonic: "test test test test test test test test test test test junk",
+      },
+    },
     // 如需连接测试网，可取消注释以下配置并设置 .env
     // sepolia: {
     //   type: "http",
