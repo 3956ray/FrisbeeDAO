@@ -7,6 +7,11 @@
     "test:coverage": "hardhat coverage",
     "compile": "hardhat compile",
     "deploy": "hardhat run scripts/deploy-frisbedao.ts",
+    "deploy:local": "hardhat run scripts/deploy-local.ts",
+    "deploy:testnet": "hardhat run scripts/deploy-testnet.ts",
+    "deploy:polygon-zkevm": "hardhat run scripts/deploy-polygon-zkevm.ts --network polygonZkEVMTestnet",
+    "verify:polygon-zkevm": "hardhat run scripts/verify-polygon-zkevm.ts --network polygonZkEVMTestnet",
+    "check:polygon-zkevm": "hardhat run scripts/check-deployment-readiness.ts",
     "node": "hardhat node"
   },
   "devDependencies": {

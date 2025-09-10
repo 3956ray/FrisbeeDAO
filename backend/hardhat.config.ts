@@ -32,19 +32,25 @@ const config: HardhatUserConfig = {
         mnemonic: "test test test test test test test test test test test junk",
       },
     },
-    // 如需连接测试网，可取消注释以下配置并设置 .env
-    // sepolia: {
-    //   type: "http",
-    //   chainType: "l1",
-    //   url: process.env.SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/YOUR_INFURA_KEY",
-    //   accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-    // },
-    // baseSepolia: {
-    //   type: "http",
-    //   chainType: "l1",
-    //   url: process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org",
-    //   accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-    // },
+    // 测试网配置
+    sepolia: {
+      type: "http",
+      url: process.env.SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/YOUR_INFURA_KEY",
+      accounts: process.env.PRIVATE_KEY && process.env.PRIVATE_KEY !== "your_private_key_here" ? [process.env.PRIVATE_KEY] : [],
+      chainId: 11155111,
+    },
+    baseSepolia: {
+      type: "http",
+      url: process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org",
+      accounts: process.env.PRIVATE_KEY && process.env.PRIVATE_KEY !== "your_private_key_here" ? [process.env.PRIVATE_KEY] : [],
+      chainId: 84532,
+    },
+    polygonZkEVMTestnet: {
+      type: "http",
+      url: process.env.POLYGON_ZKEVM_TESTNET_RPC_URL || "https://rpc.public.zkevm-test.net",
+      accounts: process.env.PRIVATE_KEY && process.env.PRIVATE_KEY !== "your_private_key_here" ? [process.env.PRIVATE_KEY] : [],
+      chainId: 1442,
+    },
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS !== undefined,
@@ -56,7 +62,18 @@ const config: HardhatUserConfig = {
       goerli: process.env.ETHERSCAN_API_KEY || "",
       baseSepolia: process.env.BASESCAN_API_KEY || "",
       optimismSepolia: process.env.OPTIMISTIC_ETHERSCAN_API_KEY || "",
+      polygonZkEVMTestnet: process.env.POLYGON_ZKEVM_API_KEY || "",
     },
+    customChains: [
+      {
+        network: "polygonZkEVMTestnet",
+        chainId: 1442,
+        urls: {
+          apiURL: "https://api-testnet-zkevm.polygonscan.com/api",
+          browserURL: "https://testnet-zkevm.polygonscan.com"
+        }
+      }
+    ]
   },
   paths: {
     sources: "./contracts",
