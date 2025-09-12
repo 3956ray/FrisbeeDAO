@@ -91,10 +91,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     amount DECIMAL(20, 8) NOT NULL,
     price DECIMAL(20, 8) NOT NULL,
     tx_hash VARCHAR(66),
-    timestamp TIMESTAMP DEFAULT NOW(),
-    INDEX(user_id, timestamp),
-    INDEX(token_address, timestamp),
-    INDEX(timestamp)
+    timestamp TIMESTAMP DEFAULT NOW()
 );
 
 -- 價格歷史表
@@ -103,8 +100,7 @@ CREATE TABLE IF NOT EXISTS price_history (
     token_address VARCHAR(42) REFERENCES tokens(address) ON DELETE CASCADE,
     price DECIMAL(20, 8) NOT NULL,
     timestamp TIMESTAMP DEFAULT NOW(),
-    adjustment_reason VARCHAR(100),
-    INDEX(token_address, timestamp)
+    adjustment_reason VARCHAR(100)
 );
 
 -- 用戶等級表

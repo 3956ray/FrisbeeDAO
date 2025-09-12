@@ -1,0 +1,14 @@
+# Docker Compose files
+/docker-compose.yml
+docker-compose.yaml
+
+# Environment files
+.env
+.env.local
+
+# Database data
+/data/
+/postgres-data/
+
+# Logs
+*.log
